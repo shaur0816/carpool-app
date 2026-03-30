@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>共乘登記系統</title>
+<link rel="icon" type="image/png" href="./icon.png" />
+<link rel="apple-touch-icon" href="./icon.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="./icon.png" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+
+  :root {
+    --green: #2E7D32;
+    --green-light: #4CAF50;
+    --green-bg: #E8F5E9;
+    --orange: #E65100;
+    --orange-light: #FF7043;
+    --orange-bg: #FBE9E7;
+    --blue: #1565C0;
+    --blue-bg: #E3F2FD;
+    --gray: #546E7A;
+    --gray-light: #ECEFF1;
+    --red: #C62828;
+    --red-bg: #FFEBEE;
+    --shadow: 0 4px 16px rgba(0,0,0,0.12);
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans TC', sans-serif; background: #F0F4F8; color: #263238; min-height: 100vh; }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, var(--green) 0%, #1B5E20 100%);
+    color: white; padding: 20px 16px; text-align: center; position: relative; overflow: hidden;
+  }
+  .header::before {
+    content:''; position:absolute; top:-40px; right:-40px;
+    width:160px; height:160px; background:rgba(255,255,255,0.07); border-radius:50%;
+  }
+  .header h1 { font-size:28px; font-weight:900; letter-spacing:2px; text-shadow:0 2px 8px rgba(0,0,0,0.3); }
+  .header .subtitle { font-size:15px; margin-top:4px; opacity:0.9; }
+
+  /* 即時狀態指示燈 */
+  .live-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    background:rgba(255,255,255,0.18); border-radius:20px;
+    padding:4px 12px; font-size:13px; font-weight:700; margin-top:8px;
+  }
+  .live-dot {
+    width:8px; height:8px; border-radius:50%; background:#69F0AE;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+
+  .pickup-banner {
+    background:#FFFDE7; border-left:5px solid #F9A825;
+    margin:12px 12px 0; padding:12px 16px; border-radius:10px;
+    font-size:16px; font-weight:700; color:#5D4037;
+  }
+  .pickup-banner span { color:#1565C0; }
+
+  .tabs {
+    display:flex; background:white; border-bottom:3px solid var(--green-bg);
+    position:sticky; top:0; z-index:100; box-shadow:0 2px 8px rgba(0,0,0,0.08);
+  }
+  .tab-btn {
+    flex:1; padding:14px 8px; font-size:17px; font-weight:700;
+    font-family:'Noto Sans TC',sans-serif; border:none; background:white;
+    cursor:pointer; color:var(--gray); border-bottom:4px solid transparent; transition:all 0.2s;
+  }
+  .tab-btn.active { color:var(--green); border-bottom-color:var(--green); background:var(--green-bg); }
+  .tab-btn span { font-size:22px; display:block; margin-bottom:2px; }
+
+  .content { padding:16px; max-width:600px; margin:0 auto; padding-bottom:90px; }
+
+  .section-card { background:white; border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:20px; overflow:hidden; }
+
+  .section-header { padding:14px 18px; display:flex; align-items:center; gap:10px; }
+  .section-header.go { background:linear-gradient(90deg, var(--green) 0%, var(--green-light) 100%); }
+  .section-header.return { background:linear-gradient(90deg, var(--orange) 0%, var(--orange-light) 100%); }
+  .section-header h2 { color:white; font-size:19px; font-weight:900; flex:1; }
+  .section-header .icon { font-size:26px; }
+  .seat-count { background:rgba(255,255,255,0.3); color:white; padding:4px 12px; border-radius:20px; font-size:14px; font-weight:700; white-space:nowrap; }
+  .seat-count.full { background:rgba(200,30,30,0.6); }
+
+  /* 路線資訊區 */
+  .route-info { background:var(--gray-light); padding:14px 18px; }
+  .route-text { font-size:20px; font-weight:900; color:#263238; letter-spacing:0.5px; margin-bottom:10px; }
+  .date-time-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  .date-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    background:white; border:2.5px solid #90CAF9; border-radius:10px; padding:6px 14px;
+    font-size:22px; font-weight:900; color:#0D47A1;
+    box-shadow:0 2px 6px rgba(13,71,161,0.12);
+  }
+  .time-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    background:var(--blue); border-radius:10px; padding:6px 14px;
+    font-size:24px; font-weight:900; color:white;
+    box-shadow:0 2px 8px rgba(21,101,192,0.35); letter-spacing:1px;
+  }
+  .note-row { font-size:18px; font-weight:700; color:#37474F; display:flex; align-items:center; gap:6px; margin-top:2px; }
+  .pickup-tag {
+    display:inline-flex; align-items:center; gap:4px;
+    background:var(--blue-bg); color:var(--blue);
+    font-size:14px; font-weight:700; padding:5px 12px; border-radius:20px; margin-top:8px;
+  }
+
+  /* 乘客列表 */
+  .passenger-list { padding:10px 14px; }
+  .passenger-item {
+    display:flex; align-items:center; padding:9px 12px; margin-bottom:7px;
+    border-radius:12px; background:var(--gray-light); gap:10px;
+    transition: background 0.3s;
+  }
+  .passenger-item.filled { background:var(--green-bg); }
+  .passenger-item.filled.rt { background:var(--orange-bg); }
+  .passenger-item.new-join { animation: flashIn 1s ease; }
+  @keyframes flashIn { 0%{background:#FFF9C4} 100%{} }
+
+  .passenger-num {
+    width:34px; height:34px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:17px; font-weight:900; background:white; color:var(--gray);
+    flex-shrink:0; box-shadow:0 2px 6px rgba(0,0,0,0.1);
+  }
+  .passenger-item.filled .passenger-num { color:var(--green); }
+  .passenger-item.filled.rt .passenger-num { color:var(--orange); }
+  .passenger-name { font-size:20px; font-weight:700; flex:1; }
+  .empty-slot { font-size:17px; color:#B0BEC5; flex:1; }
+
+  .join-btn {
+    padding:8px 16px; border-radius:20px; border:none;
+    font-size:16px; font-weight:700; font-family:'Noto Sans TC',sans-serif;
+    cursor:pointer; background:var(--green); color:white;
+    transition:all 0.15s; box-shadow:0 2px 8px rgba(46,125,50,0.3); white-space:nowrap;
+  }
+  .join-btn:active { transform:scale(0.96); }
+  .join-btn.rb { background:var(--orange); box-shadow:0 2px 8px rgba(230,81,0,0.3); }
+  .join-btn:disabled { background:#B0BEC5; box-shadow:none; cursor:not-allowed; }
+
+  .cancel-btn {
+    padding:7px 13px; border-radius:20px; border:2px solid var(--red);
+    font-size:15px; font-weight:700; font-family:'Noto Sans TC',sans-serif;
+    cursor:pointer; background:white; color:var(--red);
+    transition:all 0.15s; white-space:nowrap; flex-shrink:0;
+  }
+  .cancel-btn:hover { background:var(--red-bg); }
+
+  .full-banner {
+    text-align:center; padding:10px; background:#FFEBEE; color:var(--red);
+    font-size:16px; font-weight:700; border-top:2px dashed #EF9A9A;
+  }
+  .add-slot-btn {
+    display:block; width:calc(100% - 28px); margin:0 14px 14px;
+    padding:12px; border:3px dashed #B0BEC5; border-radius:12px;
+    background:transparent; font-size:16px; font-weight:700;
+    font-family:'Noto Sans TC',sans-serif; color:var(--gray); cursor:pointer; transition:all 0.2s;
+  }
+  .add-slot-btn:hover { border-color:var(--green); color:var(--green); background:var(--green-bg); }
+
+  /* LOADING SKELETON */
+  .skeleton-card {
+    background:white; border-radius:var(--radius); box-shadow:var(--shadow);
+    margin-bottom:20px; overflow:hidden; padding:0;
+  }
+  .skeleton-header { height:56px; background:#E0E0E0; }
+  .skeleton-body { padding:14px 18px; }
+  .skeleton-line {
+    height:20px; background:#EEEEEE; border-radius:6px; margin-bottom:10px;
+    animation: shimmer 1.4s infinite;
+  }
+  @keyframes shimmer { 0%,100%{opacity:0.5} 50%{opacity:1} }
+
+  /* MODALS */
+  .modal-overlay {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,0.55); z-index:999;
+    align-items:flex-end; justify-content:center;
+  }
+  .modal-overlay.open { display:flex; }
+  .modal {
+    background:white; border-radius:24px 24px 0 0;
+    width:100%; max-width:600px; padding:24px 20px 36px;
+    animation:slideUp 0.28s ease-out; max-height:90vh; overflow-y:auto;
+  }
+  @keyframes slideUp { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
+  .modal h3 { font-size:22px; font-weight:900; margin-bottom:4px; }
+  .modal-sub { font-size:16px; color:var(--gray); margin-bottom:20px; }
+  .form-label { font-size:18px; font-weight:700; margin-bottom:8px; display:block; color:#263238; }
+  .form-input {
+    width:100%; padding:14px 16px; font-size:20px;
+    font-family:'Noto Sans TC',sans-serif; border:2.5px solid #CFD8DC;
+    border-radius:12px; outline:none; margin-bottom:16px; transition:border 0.2s;
+  }
+  .form-input:focus { border-color:var(--green); }
+  .modal-actions { display:flex; gap:12px; margin-top:4px; }
+  .btn-ok {
+    flex:2; padding:16px; border-radius:14px; border:none;
+    font-size:20px; font-weight:900; font-family:'Noto Sans TC',sans-serif;
+    background:var(--green); color:white; cursor:pointer;
+    box-shadow:0 4px 12px rgba(46,125,50,0.35); transition:all 0.15s;
+  }
+  .btn-ok:disabled { background:#B0BEC5; box-shadow:none; cursor:not-allowed; }
+  .btn-ok:active { transform:scale(0.97); }
+  .btn-ok.orange { background:var(--orange); box-shadow:0 4px 12px rgba(230,81,0,0.35); }
+  .btn-ok.red { background:var(--red); box-shadow:0 4px 12px rgba(198,40,40,0.35); }
+  .btn-no {
+    flex:1; padding:16px; border-radius:14px; border:2.5px solid #CFD8DC;
+    font-size:18px; font-weight:700; font-family:'Noto Sans TC',sans-serif;
+    background:white; color:var(--gray); cursor:pointer;
+  }
+
+  .cancel-box { background:var(--red-bg); border-radius:14px; padding:18px; margin-bottom:20px; text-align:center; }
+  .cancel-box .cname { font-size:24px; font-weight:900; color:var(--red); margin-bottom:4px; }
+  .cancel-box .cinfo { font-size:15px; color:var(--gray); }
+
+  .section-toggle { display:flex; gap:10px; margin-bottom:16px; }
+  .toggle-btn {
+    flex:1; padding:12px; border-radius:12px; border:2.5px solid #CFD8DC;
+    font-size:17px; font-weight:700; font-family:'Noto Sans TC',sans-serif;
+    background:white; cursor:pointer;
+  }
+  .toggle-btn.active.go { border-color:var(--green); background:var(--green-bg); color:var(--green); }
+  .toggle-btn.active.return { border-color:var(--orange); background:var(--orange-bg); color:var(--orange); }
+  .form-row { display:flex; gap:12px; }
+  .form-row > div { flex:1; }
+
+  .fab {
+    position:fixed; bottom:24px; right:20px;
+    width:64px; height:64px; border-radius:50%;
+    background:linear-gradient(135deg, var(--green-light), var(--green));
+    color:white; font-size:32px; border:none; cursor:pointer;
+    box-shadow:0 6px 20px rgba(46,125,50,0.45);
+    display:flex; align-items:center; justify-content:center;
+    z-index:200; transition:transform 0.15s;
+  }
+  .fab:active { transform:scale(0.93); }
+
+  .empty-state { text-align:center; padding:40px 20px; color:var(--gray); }
+  .empty-state .emoji { font-size:52px; margin-bottom:12px; }
+  .empty-state p { font-size:18px; }
+
+  .toast {
+    position:fixed; top:20px; left:50%;
+    transform:translateX(-50%) translateY(-80px);
+    background:#263238; color:white; padding:14px 24px;
+    border-radius:40px; font-size:17px; font-weight:700;
+    z-index:9999; transition:transform 0.3s ease; white-space:nowrap;
+    max-width:90vw; text-align:center;
+  }
+  .toast.show { transform:translateX(-50%) translateY(0); }
+
+  /* 錯誤提示 */
+  .error-banner {
+    background:#FFEBEE; color:var(--red); padding:12px 16px;
+    text-align:center; font-size:15px; font-weight:700;
+    margin:8px 12px; border-radius:10px; display:none;
+  }
+
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🚗 共乘登記</h1>
+  <div class="subtitle">大家一起搭 · 方便又省錢</div>
+  <div class="live-badge">
+    <div class="live-dot"></div>
+    <span id="live-status">即時同步中</span>
+  </div>
+</div>
+
+<div class="pickup-banner">
+  📍 台中高鐵站上車地點：<span>一樓載客區 會面點1</span>
+</div>
+
+<div class="error-banner" id="error-banner">⚠️ 無法連線到伺服器，請重新整理頁面</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('go')" id="tab-go"><span>🟢</span>去程</button>
+  <button class="tab-btn" onclick="switchTab('return')" id="tab-return"><span>🟠</span>回程</button>
+</div>
+
+<div class="content" id="content-go">
+  <div id="trips-go"></div>
+  <div class="empty-state hidden" id="empty-go">
+    <div class="emoji">🌿</div><p>還沒有去程班次<br>點右下角 ＋ 新增</p>
+  </div>
+</div>
+<div class="content hidden" id="content-return">
+  <div id="trips-return"></div>
+  <div class="empty-state hidden" id="empty-return">
+    <div class="emoji">🌸</div><p>還沒有回程班次<br>點右下角 ＋ 新增</p>
+  </div>
+</div>
+
+<button class="fab" onclick="openCreateModal()">＋</button>
+
+<!-- JOIN MODAL -->
+<div class="modal-overlay" id="join-modal">
+  <div class="modal">
+    <h3 id="jm-title">報名搭乘</h3>
+    <div class="modal-sub" id="jm-sub"></div>
+    <label class="form-label">您的姓名</label>
+    <input class="form-input" type="text" id="join-name" placeholder="請輸入姓名" maxlength="20">
+    <div class="modal-actions">
+      <button class="btn-no" onclick="closeJoinModal()">取消</button>
+      <button class="btn-ok" id="join-ok-btn" onclick="confirmJoin()">✅ 確認報名</button>
+    </div>
+  </div>
+</div>
+
+<!-- CANCEL MODAL -->
+<div class="modal-overlay" id="cancel-modal">
+  <div class="modal">
+    <h3>⚠️ 確認取消報名？</h3>
+    <div class="modal-sub">取消後座位將釋出，可重新報名</div>
+    <div class="cancel-box">
+      <div class="cname" id="cm-name"></div>
+      <div class="cinfo" id="cm-info"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-no" onclick="closeCancelModal()">不取消</button>
+      <button class="btn-ok red" onclick="confirmCancel()">確認取消報名</button>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE MODAL -->
+<div class="modal-overlay" id="create-modal">
+  <div class="modal">
+    <h3>新增班次</h3>
+    <div class="modal-sub">填寫班次資訊</div>
+    <div class="section-toggle">
+      <button class="toggle-btn active go" id="tog-go" onclick="setTripType('go')">🟢 去程</button>
+      <button class="toggle-btn return" id="tog-return" onclick="setTripType('return')">🟠 回程</button>
+    </div>
+    <label class="form-label">📍 出發地</label>
+    <input class="form-input" id="c-from" placeholder="例：台中高鐵" type="text">
+    <label class="form-label">📍 目的地</label>
+    <input class="form-input" id="c-to" placeholder="例：菘畫居" type="text">
+    <div class="form-row">
+      <div>
+        <label class="form-label">📅 日期</label>
+        <input class="form-input" id="c-date" placeholder="04/17（六）" type="text">
+      </div>
+      <div>
+        <label class="form-label">🕐 時間</label>
+        <input class="form-input" id="c-time" placeholder="07:30" type="text">
+      </div>
+    </div>
+    <label class="form-label">📝 備註說明</label>
+    <input class="form-input" id="c-note" placeholder="例：當天見部上課" type="text">
+    <div class="modal-actions">
+      <button class="btn-no" onclick="closeCreateModal()">取消</button>
+      <button class="btn-ok" id="c-ok-btn" onclick="confirmCreate()">＋ 新增班次</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 狀態 ──────────────────────────────────────────
+let state = { go: [], return: [] };
+let currentTab = 'go';
+let jCtx = null;
+let cCtx = null;
+let cType = 'go';
+let pollTimer = null;
+let isLoading = false;
+
+// ── API 基礎路徑（同域） ──────────────────────────
+const API = '';
+
+// ── 輪詢：每5秒自動更新 ───────────────────────────
+async function poll() {
+  try {
+    const res = await fetch(`${API}/api/poll`);
+    if (!res.ok) throw new Error('network');
+    const data = await res.json();
+    const prevGo = JSON.stringify(state.go);
+    const prevRet = JSON.stringify(state.return);
+    state.go = data.go;
+    state.return = data.return;
+    // 只有資料有變化才重新渲染，避免閃爍
+    if (JSON.stringify(state.go) !== prevGo || JSON.stringify(state.return) !== prevRet) {
+      renderAll();
+    }
+    document.getElementById('error-banner').style.display = 'none';
+    document.getElementById('live-status').textContent = '即時同步中';
+  } catch(e) {
+    document.getElementById('live-status').textContent = '連線中斷…';
+    document.getElementById('error-banner').style.display = 'block';
+  }
+}
+
+function startPolling() {
+  poll(); // 立即執行一次
+  pollTimer = setInterval(poll, 5000);
+}
+
+// ── 渲染 ──────────────────────────────────────────
+function renderAll() {
+  ['go','return'].forEach(type => {
+    const con = document.getElementById('trips-' + type);
+    const emp = document.getElementById('empty-' + type);
+    const list = state[type];
+    if (!list || list.length === 0) {
+      con.innerHTML = '';
+      emp.classList.remove('hidden');
+      return;
+    }
+    emp.classList.add('hidden');
+    con.innerHTML = list.map(t => cardHTML(t, type)).join('');
+  });
+}
+
+function cardHTML(trip, type) {
+  const rt = type === 'return';
+  const fc = trip.filledCount;
+  const full = fc >= trip.maxSeats;
+  const sl = trip.slots;
+
+  const rows = sl.map((slot, i) => {
+    const filled = slot && slot.name;
+    return `<div class="passenger-item ${filled ? 'filled' : ''} ${filled && rt ? 'rt' : ''}">
+      <div class="passenger-num">${i+1}</div>
+      ${filled
+        ? `<div class="passenger-name">${slot.name}</div>
+           <button class="cancel-btn" onclick="openCancelModal('${type}',${trip.id},${i},'${slot.name}')">✕ 取消</button>`
+        : `<div class="empty-slot">（空位）</div>
+           <button class="join-btn ${rt ? 'rb' : ''}" ${full ? 'disabled' : ''}
+             onclick="openJoinModal('${type}',${trip.id},${i})">
+             ${full ? '已額滿' : '我要搭乘'}</button>`
+      }
+    </div>`;
+  }).join('');
+
+  return `<div class="section-card" id="card-${trip.id}">
+    <div class="section-header ${rt ? 'return' : 'go'}">
+      <span class="icon">${rt ? '🌸' : '🌿'}</span>
+      <h2>${rt ? '回程' : '去程'}</h2>
+      <span class="seat-count ${full ? 'full' : ''}">${full ? '🔴 額滿' : `已報 ${fc}/${trip.maxSeats} 人`}</span>
+    </div>
+    <div class="route-info">
+      <div class="route-text">📍 ${trip.from} → ${trip.to}</div>
+      <div class="date-time-row">
+        <span class="date-badge">📅 ${trip.date}</span>
+        <span class="time-badge">🕐 ${trip.time}</span>
+      </div>
+      ${trip.note ? `<div class="note-row">📝 ${trip.note}</div>` : ''}
+      ${!rt ? '<div><span class="pickup-tag">🏢 一樓載客區 會面點1</span></div>' : ''}
+    </div>
+    <div class="passenger-list">
+      ${rows}
+      ${full
+        ? '<div class="full-banner">🔴 本班次已額滿（上限20人）</div>'
+        : `<button class="add-slot-btn" onclick="addSlot('${type}',${trip.id})">＋ 增加座位</button>`
+      }
+    </div>
+  </div>`;
+}
+
+function showSkeleton(type) {
+  const con = document.getElementById('trips-' + type);
+  con.innerHTML = [1,2].map(() => `
+    <div class="skeleton-card">
+      <div class="skeleton-header"></div>
+      <div class="skeleton-body">
+        <div class="skeleton-line" style="width:60%"></div>
+        <div class="skeleton-line" style="width:80%"></div>
+        <div class="skeleton-line" style="width:40%"></div>
+      </div>
+    </div>`).join('');
+}
+
+// ── TAB ───────────────────────────────────────────
+function switchTab(t) {
+  currentTab = t;
+  ['go','return'].forEach(x => {
+    document.getElementById('tab-' + x).classList.toggle('active', x === t);
+    document.getElementById('content-' + x).classList.toggle('hidden', x !== t);
+  });
+}
+
+// ── JOIN ──────────────────────────────────────────
+function openJoinModal(type, tid, si) {
+  const trip = state[type].find(t => t.id === tid);
+  if (!trip) return;
+  jCtx = { type, tid, si };
+  document.getElementById('jm-title').textContent = '🚗 報名搭乘';
+  document.getElementById('jm-sub').textContent =
+    `${trip.date} ${trip.time}　${trip.from} → ${trip.to}　第${si+1}號座位`;
+  document.getElementById('join-name').value = '';
+  document.getElementById('join-ok-btn').className = 'btn-ok' + (type === 'return' ? ' orange' : '');
+  document.getElementById('join-modal').classList.add('open');
+  setTimeout(() => document.getElementById('join-name').focus(), 300);
+}
+function closeJoinModal() {
+  document.getElementById('join-modal').classList.remove('open');
+  jCtx = null;
+}
+async function confirmJoin() {
+  const name = document.getElementById('join-name').value.trim();
+  if (!name) { toast('⚠️ 請輸入您的姓名'); return; }
+  if (!jCtx) return;
+
+  const btn = document.getElementById('join-ok-btn');
+  btn.disabled = true; btn.textContent = '報名中…';
+
+  try {
+    const res = await fetch(`${API}/api/trips/${jCtx.tid}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, slotIndex: jCtx.si })
+    });
+    const data = await res.json();
+    if (!res.ok) { toast('⚠️ ' + (data.error || '報名失敗')); }
+    else {
+      closeJoinModal();
+      await poll(); // 立即刷新
+      toast(`✅ ${name} 報名成功！`);
+    }
+  } catch(e) {
+    toast('⚠️ 網路錯誤，請重試');
+  } finally {
+    btn.disabled = false; btn.textContent = '✅ 確認報名';
+  }
+}
+
+// ── CANCEL ────────────────────────────────────────
+function openCancelModal(type, tid, si, name) {
+  const trip = state[type].find(t => t.id === tid);
+  if (!trip) return;
+  cCtx = { type, tid, si, name };
+  document.getElementById('cm-name').textContent = name;
+  document.getElementById('cm-info').textContent =
+    `${trip.date} ${trip.time}　${trip.from} → ${trip.to}`;
+  document.getElementById('cancel-modal').classList.add('open');
+}
+function closeCancelModal() {
+  document.getElementById('cancel-modal').classList.remove('open');
+  cCtx = null;
+}
+async function confirmCancel() {
+  if (!cCtx) return;
+  try {
+    const res = await fetch(`${API}/api/trips/${cCtx.tid}/cancel/${cCtx.si}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) { toast('⚠️ ' + (data.error || '取消失敗')); }
+    else {
+      closeCancelModal();
+      await poll();
+      toast(`🗑️ ${cCtx.name} 已取消報名`);
+    }
+  } catch(e) {
+    toast('⚠️ 網路錯誤，請重試');
+  }
+}
+
+// ── ADD SLOT ──────────────────────────────────────
+async function addSlot(type, tid) {
+  try {
+    const res = await fetch(`${API}/api/trips/${tid}/add-slot`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) { toast('⚠️ ' + (data.error || '失敗')); return; }
+    // 直接在本地狀態加一個空 slot
+    const trip = state[type].find(t => t.id === tid);
+    if (trip && trip.slots.length < trip.maxSeats) {
+      trip.slots.push(null);
+      renderAll();
+    }
+  } catch(e) {
+    toast('⚠️ 網路錯誤');
+  }
+}
+
+// ── CREATE ────────────────────────────────────────
+function openCreateModal() {
+  setTripType(currentTab);
+  ['c-from','c-to','c-date','c-time','c-note'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('create-modal').classList.add('open');
+}
+function closeCreateModal() { document.getElementById('create-modal').classList.remove('open'); }
+function setTripType(t) {
+  cType = t;
+  document.getElementById('tog-go').classList.toggle('active', t === 'go');
+  document.getElementById('tog-return').classList.toggle('active', t === 'return');
+  document.getElementById('c-ok-btn').className = 'btn-ok' + (t === 'return' ? ' orange' : '');
+}
+async function confirmCreate() {
+  const from = document.getElementById('c-from').value.trim();
+  const to   = document.getElementById('c-to').value.trim();
+  const date = document.getElementById('c-date').value.trim();
+  const time = document.getElementById('c-time').value.trim();
+  const note = document.getElementById('c-note').value.trim();
+  if (!from || !to || !date || !time) { toast('⚠️ 請填寫出發地、目的地、日期和時間'); return; }
+
+  const btn = document.getElementById('c-ok-btn');
+  btn.disabled = true; btn.textContent = '新增中…';
+
+  try {
+    const res = await fetch(`${API}/api/trips`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: cType, from, to, date, time, note })
+    });
+    const data = await res.json();
+    if (!res.ok) { toast('⚠️ ' + (data.error || '新增失敗')); }
+    else {
+      closeCreateModal();
+      switchTab(cType);
+      await poll();
+      toast('✅ 新班次已新增！');
+    }
+  } catch(e) {
+    toast('⚠️ 網路錯誤，請重試');
+  } finally {
+    btn.disabled = false; btn.textContent = '＋ 新增班次';
+  }
+}
+
+// ── TOAST ─────────────────────────────────────────
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ── BACKDROP CLOSE ────────────────────────────────
+['join-modal','cancel-modal','create-modal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => {
+    if (e.target.id === id) {
+      if (id === 'join-modal') closeJoinModal();
+      else if (id === 'cancel-modal') closeCancelModal();
+      else closeCreateModal();
+    }
+  });
+});
+document.getElementById('join-name').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmJoin();
+});
+
+// ── INIT ──────────────────────────────────────────
+showSkeleton('go');
+showSkeleton('return');
+startPolling();
+
+// 頁面重新取得焦點時立即更新（手機切換 App 回來）
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') poll();
+});
+</script>
+</body>
+</html>
