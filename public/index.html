@@ -160,6 +160,13 @@
   }
   .add-slot-btn:hover { border-color:var(--green); color:var(--green); background:var(--green-bg); }
 
+  /* 修改按鈕樣式 */
+  .edit-trip-btn {
+    background:none; border:none; cursor:pointer; font-size:16px; padding:2px 6px;
+    border-radius:6px; transition:background 0.2s; margin-left:8px;
+  }
+  .edit-trip-btn:hover { background:rgba(0,0,0,0.1); }
+
   /* LOADING SKELETON */
   .skeleton-card {
     background:white; border-radius:var(--radius); box-shadow:var(--shadow);
@@ -447,7 +454,7 @@ function cardHTML(trip, type) {
       <span class="seat-count ${full ? 'full' : ''}">${full ? '🔴 額滿' : `已報 ${fc}/${trip.maxSeats} 人`}</span>
     </div>
     <div class="route-info">
-      <div class="route-text">📍 ${trip.from} → ${trip.to}</div>
+      <div class="route-text">📍 ${trip.from} → ${trip.to} <button class="edit-trip-btn" onclick="openEditTripModal('${type}',${trip.id})" title="修改資料">✏️</button></div>
       <div class="date-time-row">
         <span class="date-badge">📅 ${trip.date}</span>
         <span class="time-badge">🕐 ${trip.time}</span>
@@ -581,8 +588,10 @@ async function addSlot(type, tid) {
 
 // ── CREATE ────────────────────────────────────────
 function openCreateModal() {
+  cCtx = null; // 重置為新增模式
   setTripType(currentTab);
   ['c-from','c-to','c-date','c-time','c-note'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('c-ok-btn').textContent = '＋ 新增班次';
   document.getElementById('create-modal').classList.add('open');
 }
 function closeCreateModal() { document.getElementById('create-modal').classList.remove('open'); }
@@ -599,17 +608,71 @@ async function confirmCreate() {
   const time = document.getElementById('c-time').value;
   const note = document.getElementById('c-note').value;
 
-  const trip = state[cType].find(t => t.id === cCtx);
-  if (trip) {
-    trip.from = from;
-    trip.to = to;
-    trip.date = date;
-    trip.time = time;
-    trip.note = note;
-    renderAll();
+  if (!from || !to || !date || !time) {
+    toast('⚠️ 請填寫所有必填欄位');
+    return;
   }
 
-  closeCreateModal();
+  const btn = document.getElementById('c-ok-btn');
+  btn.disabled = true;
+  btn.textContent = '處理中…';
+
+  try {
+    // 如果 cCtx 存在，表示是編輯模式
+    if (cCtx) {
+      const res = await fetch(`${API}/api/trips/${cCtx}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to, date, time, note })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast('⚠️ ' + (data.error || '更新失敗'));
+      } else {
+        closeCreateModal();
+        await poll();
+        toast('✅ 班次資料已更新');
+      }
+    } else {
+      // 新增模式
+      const res = await fetch(`${API}/api/trips`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: cType, from, to, date, time, note })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast('⚠️ ' + (data.error || '新增失敗'));
+      } else {
+        closeCreateModal();
+        await poll();
+        toast('✅ 班次已新增');
+      }
+    }
+  } catch(e) {
+    toast('⚠️ 網路錯誤，請重試');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = cCtx ? '✅ 儲存修改' : '＋ 新增班次';
+  }
+}
+
+// 開啟編輯班次 Modal
+function openEditTripModal(type, tripId) {
+  const trip = state[type].find(t => t.id === tripId);
+  if (!trip) return;
+
+  cCtx = tripId;
+  cType = type;
+
+  document.getElementById('c-from').value = trip.from;
+  document.getElementById('c-to').value = trip.to;
+  document.getElementById('c-date').value = trip.date;
+  document.getElementById('c-time').value = trip.time;
+  document.getElementById('c-note').value = trip.note || '';
+
+  document.getElementById('c-ok-btn').textContent = '✅ 儲存修改';
+  document.getElementById('create-modal').classList.add('open');
 }
 
 // ── TOAST ─────────────────────────────────────────

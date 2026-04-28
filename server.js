@@ -187,11 +187,56 @@ app.delete('/api/trips/:tripId/cancel/:slotIndex', (req, res) => {
   if (!passenger) return res.status(404).json({ error: '找不到此報名紀錄' });
 
   try {
+    // 刪除該座位的乘客
     db.prepare('DELETE FROM passengers WHERE trip_id = ? AND slot_index = ?').run(tripId, slotIndex);
+
+    // 取得所有乘客，按 slot_index 排序
+    const passengers = db.prepare(
+      'SELECT slot_index, name FROM passengers WHERE trip_id = ? ORDER BY slot_index ASC'
+    ).all(tripId);
+
+    // 重新調整座位：將所有乘客向前推進，填補空位
+    const updateStmt = db.prepare('UPDATE passengers SET slot_index = ? WHERE trip_id = ? AND slot_index = ?');
+    const deleteStmt = db.prepare('DELETE FROM passengers WHERE trip_id = ? AND slot_index = ?');
+
+    // 從被刪除的位置開始，重新編號所有後續乘客
+    passengers.forEach((p, idx) => {
+      if (p.slot_index !== idx) {
+        updateStmt.run(idx, tripId, p.slot_index);
+      }
+    });
+
+    // 刪除最後一個多餘的座位（如果有的話）
+    const currentCount = db.prepare('SELECT COUNT(*) as c FROM passengers WHERE trip_id = ?').get(tripId).c;
+    if (passengers.length > currentCount) {
+      deleteStmt.run(tripId, passengers.length);
+    }
+
     res.json({ success: true, message: `${passenger.name} 已取消報名` });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: '取消失敗，請重試' });
+  }
+});
+
+// 修改班次資料
+app.put('/api/trips/:tripId', (req, res) => {
+  const tripId = parseInt(req.params.tripId);
+  const { from, to, date, time, note } = req.body;
+
+  const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
+  if (!trip) return res.status(404).json({ error: '找不到此班次' });
+
+  try {
+    db.prepare(`
+      UPDATE trips SET from_loc = ?, to_loc = ?, date = ?, time = ?, note = ?
+      WHERE id = ?
+    `).run(from.trim(), to.trim(), date.trim(), time.trim(), (note || '').trim(), tripId);
+
+    res.json({ success: true, message: '班次資料已更新' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: '更新失敗' });
   }
 });
 
