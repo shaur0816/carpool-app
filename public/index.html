@@ -593,35 +593,23 @@ function setTripType(t) {
   document.getElementById('c-ok-btn').className = 'btn-ok' + (t === 'return' ? ' orange' : '');
 }
 async function confirmCreate() {
-  const from = document.getElementById('c-from').value.trim();
-  const to   = document.getElementById('c-to').value.trim();
-  const date = document.getElementById('c-date').value.trim();
-  const time = document.getElementById('c-time').value.trim();
-  const note = document.getElementById('c-note').value.trim();
-  if (!from || !to || !date || !time) { toast('⚠️ 請填寫出發地、目的地、日期和時間'); return; }
+  const from = document.getElementById('c-from').value;
+  const to = document.getElementById('c-to').value;
+  const date = document.getElementById('c-date').value;
+  const time = document.getElementById('c-time').value;
+  const note = document.getElementById('c-note').value;
 
-  const btn = document.getElementById('c-ok-btn');
-  btn.disabled = true; btn.textContent = '新增中…';
-
-  try {
-    const res = await fetch(`${API}/api/trips`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: cType, from, to, date, time, note })
-    });
-    const data = await res.json();
-    if (!res.ok) { toast('⚠️ ' + (data.error || '新增失敗')); }
-    else {
-      closeCreateModal();
-      switchTab(cType);
-      await poll();
-      toast('✅ 新班次已新增！');
-    }
-  } catch(e) {
-    toast('⚠️ 網路錯誤，請重試');
-  } finally {
-    btn.disabled = false; btn.textContent = '＋ 新增班次';
+  const trip = state[cType].find(t => t.id === cCtx);
+  if (trip) {
+    trip.from = from;
+    trip.to = to;
+    trip.date = date;
+    trip.time = time;
+    trip.note = note;
+    renderAll();
   }
+
+  closeCreateModal();
 }
 
 // ── TOAST ─────────────────────────────────────────
